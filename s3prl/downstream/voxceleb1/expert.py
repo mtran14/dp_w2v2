@@ -47,7 +47,8 @@ class DownstreamExpert(nn.Module):
         self.train_dataset = SpeakerClassifiDataset('train', root_dir, self.datarc['meta_data'], self.datarc['max_timestep'])
         self.dev_dataset = SpeakerClassifiDataset('dev', root_dir, self.datarc['meta_data'])
         self.test_dataset = SpeakerClassifiDataset('test', root_dir, self.datarc['meta_data'])
-        
+        self.train_dataset.speaker_num = 1251
+
         model_cls = eval(self.modelrc['select'])
         model_conf = self.modelrc.get(self.modelrc['select'], {})
         self.projector = nn.Linear(upstream_dim, self.modelrc['projector_dim'])
@@ -56,6 +57,7 @@ class DownstreamExpert(nn.Module):
             output_dim = self.train_dataset.speaker_num,
             **model_conf,
         )
+        print(f'number of speakers {self.train_dataset.speaker_num}')
         self.objective = nn.CrossEntropyLoss()
         self.register_buffer('best_score', torch.zeros(1))
 
@@ -87,6 +89,45 @@ class DownstreamExpert(nn.Module):
     # Interface
     def get_dataloader(self, mode):
         return eval(f'self.get_{mode}_dataloader')()
+
+    def compute_saliency_map(self, features, labels):
+        self.model.eval()
+        device = features[0].device
+
+        features_len = torch.IntTensor([len(feat) for feat in features]).to(device=device)
+        features_pad = pad_sequence(features, batch_first=True)
+
+
+        features_pad = torch.clamp(features_pad, min=-1.0, max=1.0)
+        adv_features = features_pad.clone().detach()
+
+        labels = torch.LongTensor(labels).to(device)
+
+        saliency_map = torch.zeros(features_pad.size(), device='cuda')
+
+        n_versions = 50
+        B, T, D = features_pad.size()
+        loc = loc = torch.zeros((B, T, D))
+        scale = torch.ones(B, T, D)*2.0 # this can be different
+        m = torch.distributions.laplace.Laplace(loc, scale)
+
+        for _ in range(n_versions):
+            noise = m.sample().cuda()
+            adv_features_tmp = adv_features+noise
+            adv_features_tmp.requires_grad = True
+            fp = self.projector(adv_features_tmp)
+            predicted, _ = self.model(fp, features_len)
+            predicted = predicted * torch.eye(self.train_dataset.speaker_num)[labels, :].cuda()
+            cost = self.objective(predicted, labels)
+            grad = torch.autograd.grad(cost, adv_features_tmp,
+                                       retain_graph=False, create_graph=False)[0]
+            self.projector.zero_grad()
+            self.model.zero_grad()
+            saliency_map += torch.abs(grad)
+            adv_features.detach()
+            adv_features_tmp.detach()
+
+        return saliency_map / n_versions
 
     # Interface
     def forward(self, mode, features, labels, filenames, records, **kwargs):
