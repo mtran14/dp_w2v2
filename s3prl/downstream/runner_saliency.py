@@ -99,7 +99,7 @@ class Runner():
         self.downstream = self._get_downstream()
         self.save_path = self.args.save_path
         if(not os.path.exists(self.save_path)):
-            os.path.mkdir(self.save_path)
+            os.mkdir(self.save_path)
         self.all_entries = [self.upstream, self.featurizer, self.downstream]
 
 
