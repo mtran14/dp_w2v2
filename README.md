@@ -24,5 +24,7 @@ cd s3prl
 python3 run_downstream_perturb.py -m evaluate -e path_to_trained_downstream_model --pse path_to_trained_pse --eps EPS --threshold THRESHOLD
 ```
 THRESHOLD: {0 (100% perturbed), 1 (80% perturbed), 2 (60% perturbed), 3 (40% perturbed), 4 (20% perturbed)}
+
 EPS: amount of perturbation (e.g. 0.5, 1.0, etc.)
+
 If you use the provided downstream models, consider using `-o config.downstream_expert.datarc.[file_path/root/libri_root/]` to set the dataset paths correctly.
