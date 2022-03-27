@@ -21,6 +21,7 @@ python3 train_pse.py path_to_store_saliecy_maps
 4. Apply pertubations on the downstream tasks. Please follow the instructions [here](https://github.com/s3prl/s3prl/blob/master/s3prl/downstream/docs/superb.md) to prepare the datasets.
 ```
 cd s3prl
+python3 run_downstream.py -m train -u wav2vec2 -d [emotion/asr/fluent_commands/sv_voxceleb1] -n ExperimentName
 python3 run_downstream_perturb.py -m evaluate -e path_to_trained_downstream_model --pse path_to_trained_pse --eps EPS --threshold THRESHOLD
 ```
 THRESHOLD: {0 (100% perturbed), 1 (80% perturbed), 2 (60% perturbed), 3 (40% perturbed), 4 (20% perturbed)}
